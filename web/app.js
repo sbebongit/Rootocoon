@@ -17,7 +17,7 @@ const GUIDES = {
   edit: [
     ["painter", "Nice! Now <b>paint over</b> whatever you want gone. Cover all of it – and its shadow too, if it has one."],
     ["talk", "Change the brush <b>size</b> with the slider (or the <b>[</b> and <b>]</b> keys). Painted too much? Use the <b>Eraser</b> or <b>Undo</b>."],
-    ["talk", "Then press <b>✨ Erase it!</b> and the AI guesses what was behind it. You can run it several times, and hold <b>Original</b> to compare."],
+    ["talk", "Then press <b>✨ Erase it!</b> and the AI guesses what was behind it. You can run it several times, and press <b>Original</b> to compare with the image you uploaded."],
   ],
 };
 
@@ -114,8 +114,9 @@ const state = {
   strokes: [],       // the selection is stored as brush strokes, so undo is cheap
   undo: [], redo: [],
   original: null,    // ImageBitmap of the original (for comparing)
-  fileType: "image/png",
-  fileName: "image",
+  fileType: "image/png",   // the real format of the uploaded file
+  fileName: "image",       // file name without extension
+  fileSize: 0,
   busy: false,
 };
 
@@ -166,9 +167,13 @@ async function openFile(file) {
   mascot.costume("detective");
   try {
     const { bmp, type } = await checkFile(file);
-    state.fileType = type === "image/jpeg" ? "image/jpeg" : "image/png";
+    state.fileType = type;
     state.fileName = file.name.replace(/\.[^.]+$/, "") || "image";
+    state.fileSize = file.size;
+    // Save in the same kind of format as the upload: JPG stays JPG, everything else is saved as lossless PNG
+    $("#saveFormat").value = type === "image/jpeg" ? "image/jpeg" : "image/png";
     loadBitmap(bmp);
+    renderInfo(file.name);
     mascot.hide();
     showView("edit");
   } catch (e) {
@@ -186,6 +191,57 @@ function loadBitmap(bmp) {
   redrawMask();
   updateButtons();
 }
+
+/* ---------------------------------------------------------------------
+   Image info: size in pixels, aspect ratio, file size and format
+   --------------------------------------------------------------------- */
+const COMMON_RATIOS = [[1, 1], [5, 4], [4, 3], [3, 2], [16, 10], [16, 9], [2, 1], [21, 9], [32, 9]];
+const FORMAT_NAMES = { "image/jpeg": "JPG", "image/png": "PNG", "image/webp": "WEBP", "image/bmp": "BMP" };
+
+function aspectRatio(w, h) {
+  const r = w / h;
+  // Snap to a well-known ratio if it is within 1% (e.g. 1366x768 is "16:9")
+  for (const [a, b] of COMMON_RATIOS) {
+    if (Math.abs(r - a / b) / (a / b) < 0.01) return `${a}:${b}`;
+    if (Math.abs(r - b / a) / (b / a) < 0.01) return `${b}:${a}`;   // portrait, e.g. 9:16
+  }
+  const gcd = (x, y) => (y ? gcd(y, x % y) : x);
+  const g = gcd(w, h);
+  if (w / g <= 50 && h / g <= 50) return `${w / g}:${h / g}`;
+  return r >= 1 ? `${r.toFixed(2)}:1` : `1:${(1 / r).toFixed(2)}`;
+}
+function orientation(w, h) {
+  return w === h ? "square" : w > h ? "landscape" : "portrait";
+}
+function formatBytes(n) {
+  if (n >= 1048576) return `${(n / 1048576).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(n / 1024))} KB`;
+}
+function renderInfo(fullName) {
+  const w = imageCanvas.width, h = imageCanvas.height;
+  const items = [
+    ["name", fullName],
+    ["dims", `${w} \u00d7 ${h} px`],
+    ["ratio", `${aspectRatio(w, h)} ${orientation(w, h)}`],
+    ["size", formatBytes(state.fileSize)],
+    ["type", FORMAT_NAMES[state.fileType] || ""],
+  ];
+  const box = $("#imgInfo");
+  box.replaceChildren(...items.map(([cls, text]) => {
+    const el = document.createElement("span");      // textContent, never innerHTML: file names are user input
+    el.className = "info-" + cls;
+    el.textContent = text;
+    if (cls === "name") el.title = text;
+    return el;
+  }));
+  updateSaveHint();
+}
+function updateSaveHint() {
+  const jpg = $("#saveFormat").value === "image/jpeg";
+  $("#downloadBtn").title = `Download: ${imageCanvas.width} \u00d7 ${imageCanvas.height} px, ` +
+    (jpg ? "JPG at maximum quality" : "PNG, lossless (every pixel exactly as shown)");
+}
+$("#saveFormat").addEventListener("change", updateSaveHint);
 
 function showView(v) {
   state.view = v;
@@ -213,6 +269,39 @@ addEventListener("paste", (e) => {
    The brush
    ===================================================================== */
 const sizeInput = $("#brushSize"), cursor = $("#cursor");
+const SIZE_MIN = 2, SIZE_MAX = 200;
+// Smaller steps for small brushes, bigger steps for big ones
+const sizeStep = (v) => (v < 20 ? 2 : v < 60 ? 5 : 10);
+let previewTimer = 0;
+function setSize(v, preview = true) {
+  v = Math.round(Math.min(SIZE_MAX, Math.max(SIZE_MIN, v)));
+  sizeInput.value = v;
+  $("#sizeValue").textContent = `${v} px`;
+  $("#sizeDown").disabled = v <= SIZE_MIN;
+  $("#sizeUp").disabled = v >= SIZE_MAX;
+  if (preview && state.view === "edit") showSizePreview(v);
+}
+function changeSize(dir) {
+  const v = +sizeInput.value;
+  setSize(dir > 0 ? v + sizeStep(v) : v - sizeStep(v - 1));
+}
+// Show the brush circle in the middle of the image for a moment, so you see the new size
+function showSizePreview(v) {
+  if (live || cursor.dataset.over === "1") { cursor.style.width = cursor.style.height = v + "px"; return; }
+  cursor.hidden = false;
+  cursor.classList.add("preview");
+  cursor.style.left = wrap.clientWidth / 2 + "px";
+  cursor.style.top = wrap.clientHeight / 2 + "px";
+  cursor.style.width = cursor.style.height = v + "px";
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    cursor.classList.remove("preview");
+    if (cursor.dataset.over !== "1") cursor.hidden = true;
+  }, 700);
+}
+sizeInput.addEventListener("input", () => setSize(+sizeInput.value));
+$("#sizeDown").addEventListener("click", () => changeSize(-1));
+$("#sizeUp").addEventListener("click", () => changeSize(1));
 const toScale = () => maskCanvas.width / maskCanvas.getBoundingClientRect().width;
 const brushPx = () => +sizeInput.value * toScale(); // screen pixels -> image pixels
 
@@ -242,14 +331,48 @@ function pos(e) {
   const r = maskCanvas.getBoundingClientRect(), k = toScale();
   return [(e.clientX - r.left) * k, (e.clientY - r.top) * k];
 }
+// Ctrl + drag (Cmd + drag on Mac) changes the brush size, like the Roto Brush in After Effects:
+// drag right or up = bigger, left or down = smaller. The circle stays where you started.
+let resizing = null;
+const resizeKey = (e) => e.ctrlKey || e.metaKey;
+function startResize(e) {
+  const r = wrap.getBoundingClientRect();
+  resizing = { x: e.clientX, y: e.clientY, size: +sizeInput.value };
+  maskCanvas.setPointerCapture(e.pointerId);
+  cursor.hidden = false;
+  cursor.classList.remove("preview");
+  cursor.classList.add("resizing");
+  cursor.style.left = e.clientX - r.left + "px";
+  cursor.style.top = e.clientY - r.top + "px";
+  showResize();
+}
+function moveResize(e) {
+  const moved = (e.clientX - resizing.x) - (e.clientY - resizing.y);   // right and up count as positive
+  setSize(resizing.size + moved, false);
+  showResize();
+}
+function showResize() {
+  cursor.style.width = cursor.style.height = sizeInput.value + "px";
+  cursor.dataset.size = sizeInput.value + " px";
+}
+function endResize() {
+  resizing = null;
+  cursor.classList.remove("resizing");
+}
+// On a Mac, Ctrl + click opens the right-click menu – don't let it pop up over the image
+maskCanvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
 maskCanvas.addEventListener("pointerdown", (e) => {
   if (state.busy || e.button > 0) return;
+  stopCompare();
+  if (resizeKey(e)) return startResize(e);
   maskCanvas.setPointerCapture(e.pointerId);
   live = { erase: state.tool === "eraser", size: brushPx(), pts: [pos(e)] };
   drawStroke(live);
   if (!mascot.open && !live.erase) mascot.costume("painter");
 });
 maskCanvas.addEventListener("pointermove", (e) => {
+  if (resizing) return moveResize(e);
   moveCursor(e);
   if (!live) return;
   live.pts.push(pos(e));
@@ -258,14 +381,16 @@ maskCanvas.addEventListener("pointermove", (e) => {
 const endStroke = () => {
   if (!live) return;
   state.strokes.push(live);
-  state.undo.push({ type: "stroke" }); state.redo = [];
+  state.undo.push({ type: "stroke", stroke: live }); state.redo = [];
   live = null;
   if (!mascot.open) mascot.costume("talk", false);
   updateButtons();
 };
-maskCanvas.addEventListener("pointerup", endStroke);
-maskCanvas.addEventListener("pointercancel", endStroke);
-maskCanvas.addEventListener("pointerleave", () => (cursor.hidden = true));
+const endPointer = () => (resizing ? endResize() : endStroke());
+maskCanvas.addEventListener("pointerup", endPointer);
+maskCanvas.addEventListener("pointercancel", endPointer);
+maskCanvas.addEventListener("pointerleave", () => { cursor.hidden = true; cursor.dataset.over = "0"; });
+maskCanvas.addEventListener("pointerenter", () => { cursor.dataset.over = "1"; cursor.classList.remove("preview"); });
 
 function moveCursor(e) {
   const r = wrap.getBoundingClientRect();
@@ -286,19 +411,25 @@ document.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("clic
    Undo / redo
    ===================================================================== */
 // Every step in the history is one of three kinds:
-//   stroke  – one brush stroke
+//   stroke  – one brush or eraser stroke
 //   clear   – "Clear" (we remember which strokes were removed)
-//   inpaint – one AI removal (we remember the image piece before and after)
+//   inpaint – one AI removal (we remember the image piece before and after,
+//             and the painting, so undo goes back to just before "Erase it!")
+// One click on Undo always takes back exactly one step.
 function undo() {
-  const a = state.undo.pop(); if (!a || state.busy) return;
-  if (a.type === "stroke") a.stroke = state.strokes.pop();
+  if (state.busy || !state.undo.length) return; // never touch history while the AI works
+  stopCompare();
+  const a = state.undo.pop();
+  if (a.type === "stroke") state.strokes = state.strokes.filter((s) => s !== a.stroke);
   if (a.type === "clear") state.strokes = a.removed;
   if (a.type === "inpaint") { ictx.drawImage(a.before, a.x, a.y); state.strokes = a.strokes; }
   state.redo.push(a); redrawMask(); updateButtons();
 }
 function redo() {
-  const a = state.redo.pop(); if (!a || state.busy) return;
-  if (a.type === "stroke") state.strokes.push(a.stroke);
+  if (state.busy || !state.redo.length) return;
+  stopCompare();
+  const a = state.redo.pop();
+  if (a.type === "stroke") state.strokes = [...state.strokes, a.stroke];
   if (a.type === "clear") state.strokes = [];
   if (a.type === "inpaint") { ictx.drawImage(a.after, a.x, a.y); state.strokes = []; }
   state.undo.push(a); redrawMask(); updateButtons();
@@ -307,11 +438,13 @@ function updateButtons() {
   $("#undoBtn").disabled = !state.undo.length || state.busy;
   $("#redoBtn").disabled = !state.redo.length || state.busy;
   $("#clearBtn").disabled = !state.strokes.length || state.busy;
+  $("#compareBtn").disabled = state.busy;
   $("#goBtn").disabled = !state.strokes.some((s) => !s.erase) || state.busy;
 }
 $("#undoBtn").addEventListener("click", undo);
 $("#redoBtn").addEventListener("click", redo);
 $("#clearBtn").addEventListener("click", () => {
+  if (state.busy || !state.strokes.length) return;
   state.undo.push({ type: "clear", removed: state.strokes });
   state.redo = []; state.strokes = [];
   redrawMask(); updateButtons();
@@ -336,6 +469,8 @@ const canvasOf = (w, h) => Object.assign(document.createElement("canvas"), { wid
 const toBlob = (c, type = "image/png", q) => new Promise((r) => c.toBlob(r, type, q));
 
 async function run() {
+  if (state.busy) return;
+  stopCompare();
   const b = strokeBounds();
   if (!b) return mascot.say("empty_mask");
 
@@ -369,7 +504,7 @@ async function run() {
     pctx.globalCompositeOperation = "destination-in";
     pctx.filter = `blur(${Math.max(2, 5 / scale)}px)`;
     const soft = canvasOf(w, h), sctx = soft.getContext("2d");
-    for (let i = 0; i < 3; i++) sctx.drawImage(maskCanvas, x, y, w, h, 0, 0, w, h); // lite tjockare mask
+    for (let i = 0; i < 3; i++) sctx.drawImage(maskCanvas, x, y, w, h, 0, 0, w, h); // slightly thicker mask
     pctx.drawImage(soft, 0, 0);
     out.close();
 
@@ -398,22 +533,34 @@ function setBusy(on) {
 /* =====================================================================
    Compare, save, new image
    ===================================================================== */
+// "Original" is a toggle: click once to see the uploaded image, click again to go back.
+// Any other action (painting, undo, erase…) also switches back automatically.
 const orig = canvasOf(1, 1);
 orig.className = "orig";
 const cmp = $("#compareBtn");
-const startCmp = (e) => {
-  e.preventDefault();
+let comparing = false;
+function startCompare() {
+  if (!state.original || state.busy) return;
   orig.width = imageCanvas.width; orig.height = imageCanvas.height;
   orig.getContext("2d").drawImage(state.original, 0, 0);
   wrap.appendChild(orig); wrap.classList.add("comparing");
-};
-const endCmp = () => { orig.remove(); wrap.classList.remove("comparing"); };
-cmp.addEventListener("pointerdown", startCmp);
-["pointerup", "pointerleave", "pointercancel"].forEach((ev) => cmp.addEventListener(ev, endCmp));
+  comparing = true;
+  cmp.classList.add("active"); cmp.setAttribute("aria-pressed", "true");
+}
+function stopCompare() {
+  if (!comparing) return;
+  orig.remove(); wrap.classList.remove("comparing");
+  comparing = false;
+  cmp.classList.remove("active"); cmp.setAttribute("aria-pressed", "false");
+}
+cmp.addEventListener("click", () => (comparing ? stopCompare() : startCompare()));
 
+// Save: same width and height as the upload, at the best quality the format allows.
+// The image is never scaled down. Only the area you erased has new pixels.
 $("#downloadBtn").addEventListener("click", async () => {
-  const jpg = state.fileType === "image/jpeg";
-  const blob = await toBlob(imageCanvas, state.fileType, 0.95);
+  const type = $("#saveFormat").value;
+  const jpg = type === "image/jpeg";
+  const blob = await toBlob(imageCanvas, type, jpg ? 1.0 : undefined);  // 1.0 = maximum JPG quality
   const a = Object.assign(document.createElement("a"), {
     href: URL.createObjectURL(blob),
     download: `${state.fileName}-erased.${jpg ? "jpg" : "png"}`,
@@ -427,6 +574,7 @@ $("#newBtn").addEventListener("click", () => {
   // Release everything from memory
   state.undo.forEach((a) => { a.before?.close?.(); a.after?.close?.(); });
   state.redo.forEach((a) => { a.before?.close?.(); a.after?.close?.(); });
+  stopCompare();
   state.undo = []; state.redo = []; state.strokes = [];
   state.original?.close?.(); state.original = null;
   for (const c of [imageCanvas, maskCanvas]) { c.width = c.height = 1; }
@@ -438,14 +586,19 @@ $("#newBtn").addEventListener("click", () => {
    Keyboard
    ===================================================================== */
 addEventListener("keydown", (e) => {
-  if (state.view !== "edit" || e.target.matches("input")) return;
+  if (state.view !== "edit" || e.target.matches("input[type=text], textarea")) return;
+  // Enter/Space on a focused button already "clicks" it – don't run a shortcut on top of that
+  if (e.target.matches("button") && (e.key === "Enter" || e.key === " ")) return;
   const mod = e.ctrlKey || e.metaKey;
-  if (mod && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
-  else if (mod && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) { e.preventDefault(); redo(); }
-  else if (e.key === "b") setTool("brush");
-  else if (e.key === "e") setTool("eraser");
-  else if (e.key === "[") sizeInput.value = +sizeInput.value - 6;
-  else if (e.key === "]") sizeInput.value = +sizeInput.value + 6;
+  const key = e.key.toLowerCase();
+  if (mod && key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (mod && (key === "y" || (e.shiftKey && key === "z"))) { e.preventDefault(); redo(); }
+  else if (mod) return; // leave other Ctrl shortcuts (copy, paste…) alone
+  else if (key === "b") setTool("brush");
+  else if (key === "e") setTool("eraser");
+  else if (key === "o") comparing ? stopCompare() : startCompare();
+  else if (e.key === "[") changeSize(-1);
+  else if (e.key === "]") changeSize(1);
   else if (e.key === "Enter" && !$("#goBtn").disabled) run();
 });
 
@@ -464,4 +617,5 @@ fetch("/api/info", { cache: "no-store" })
 if (location.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(location.hostname)) {
   $("#engineBadge").textContent = "⚠️ Not encrypted!";
 }
+setSize(+sizeInput.value, false);
 showView("upload");

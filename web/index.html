@@ -49,20 +49,34 @@
           <button class="tool active" data-tool="brush" title="Brush (B)">🖌️ <span>Brush</span></button>
           <button class="tool" data-tool="eraser" title="Eraser (E)">🩹 <span>Eraser</span></button>
         </div>
-        <label class="size" title="Brush size ( [ and ] )">
-          <span>Size</span>
-          <input id="brushSize" type="range" min="4" max="160" value="40">
-        </label>
+        <div class="size" role="group" aria-label="Brush size" title="Tip: hold Ctrl and drag on the image to change the brush size">
+          <span class="size-label">Brush size</span>
+          <button id="sizeDown" class="mini" title="Smaller brush ( [ )" aria-label="Smaller brush">&minus;</button>
+          <input id="brushSize" type="range" min="2" max="200" value="40" aria-label="Brush size">
+          <button id="sizeUp" class="mini" title="Bigger brush ( ] )" aria-label="Bigger brush">+</button>
+          <output id="sizeValue" for="brushSize">40 px</output>
+        </div>
         <div class="group">
           <button id="undoBtn" title="Undo (Ctrl+Z)">↶ <span>Undo</span></button>
           <button id="redoBtn" title="Redo (Ctrl+Y)">↷ <span>Redo</span></button>
           <button id="clearBtn" title="Clear selection">✕ <span>Clear</span></button>
         </div>
         <div class="group right">
-          <button id="compareBtn" title="Hold to see the original">👁 <span>Original</span></button>
+          <button id="compareBtn" title="Show the original image (O)" aria-pressed="false">👁 <span>Original</span></button>
           <button id="downloadBtn" title="Download">⬇ <span>Save</span></button>
           <button id="newBtn" title="New image">＋ <span>New image</span></button>
         </div>
+      </div>
+
+      <div class="infobar">
+        <div id="imgInfo" class="imginfo" aria-label="Uploaded image"></div>
+        <label class="saveas" title="Format used when you press Save">
+          <span>Save as</span>
+          <select id="saveFormat">
+            <option value="image/jpeg">JPG, maximum quality</option>
+            <option value="image/png">PNG, lossless</option>
+          </select>
+        </label>
       </div>
 
       <div id="stage" class="stage">

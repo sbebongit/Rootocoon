@@ -81,28 +81,51 @@ h1 { font-size: clamp(28px, 5vw, 46px); letter-spacing: -.03em; margin: 0 0 8px;
 
 /* --- Toolbar --- */
 .toolbar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
   background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 8px; box-shadow: var(--shadow); margin-bottom: 14px;
 }
 .group { display: flex; gap: 4px; }
 .group.right { margin-left: auto; }
 .toolbar button {
-  border: 0; background: transparent; padding: 8px 12px; border-radius: 10px;
+  border: 0; background: transparent; padding: 8px 10px; border-radius: 10px;
   display: flex; align-items: center; gap: 6px; white-space: nowrap;
 }
 .toolbar button:hover:not(:disabled) { background: var(--bg); }
 .toolbar button:disabled { opacity: .35; cursor: default; }
-.toolbar button.active { background: var(--ink); color: var(--bg); }
-.size { display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--muted); font-size: 14px; }
-.size input { width: 120px; accent-color: var(--accent); }
+.toolbar button.active,
+.toolbar button.active:hover:not(:disabled) { background: var(--ink); color: var(--bg); }
+.size { display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--muted); font-size: 14px; }
+.size-label { margin-right: 2px; }
+.size input { width: 96px; accent-color: var(--accent); }
+.toolbar .size button.mini {
+  width: 28px; height: 28px; padding: 0; justify-content: center;
+  border-radius: 50%; border: 1px solid var(--line); font-size: 17px; line-height: 1;
+}
+.size output { min-width: 48px; font-variant-numeric: tabular-nums; color: var(--ink); font-size: 13px; }
+
+/* --- Info line above the image --- */
+.infobar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px; margin: 0 4px 10px; font-size: 13px; color: var(--muted);
+}
+.imginfo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; min-width: 0; }
+.imginfo span + span::before { content: "\00b7"; margin: 0 8px; opacity: .6; }
+.imginfo .info-name {
+  color: var(--ink); font-weight: 600; max-width: 260px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.imginfo .info-ratio { color: var(--ink); }
+.saveas { display: flex; align-items: center; gap: 8px; }
+.saveas select {
+  font: inherit; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px;
+}
 
 /* --- Image area --- */
 .stage {
   display: grid; place-items: center; min-height: 300px;
-  background:
-    repeating-conic-gradient(var(--line) 0 25%, transparent 0 50%) 0 0 / 20px 20px,
-    var(--paper);
+  background: var(--paper);
   border-radius: var(--radius); padding: 12px; border: 1px solid var(--line);
 }
 .canvas-wrap { position: relative; line-height: 0; touch-action: none; }
@@ -113,12 +136,26 @@ h1 { font-size: clamp(28px, 5vw, 46px); letter-spacing: -.03em; margin: 0 0 8px;
 }
 .canvas-wrap.comparing #maskCanvas { opacity: 0; }
 .canvas-wrap canvas.orig { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Label so it is obvious that the original is showing */
+.canvas-wrap.comparing::after {
+  content: "Original"; position: absolute; top: 10px; left: 10px; z-index: 2;
+  padding: 4px 10px; border-radius: 99px; line-height: 1.4;
+  background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 600;
+}
 .cursor {
   position: absolute; pointer-events: none; border-radius: 50%;
   border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.6);
   transform: translate(-50%, -50%);
 }
 .cursor.eraser { border-style: dashed; }
+.cursor.resizing { border-color: var(--accent); background: rgba(232, 104, 58, .18); }
+.cursor.resizing::after {
+  content: attr(data-size); position: absolute; left: 50%; top: calc(100% + 8px);
+  transform: translateX(-50%); white-space: nowrap; line-height: 1.4;
+  padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  background: var(--ink); color: var(--bg);
+}
+.cursor.preview { background: rgba(232, 60, 80, .25); transition: width .12s, height .12s; }
 
 /* AI working: scanner effect over the image */
 .busy { position: absolute; inset: 0; overflow: hidden; border-radius: 6px; background: rgba(20, 20, 30, .25); }
@@ -195,7 +232,8 @@ h1 { font-size: clamp(28px, 5vw, 46px); letter-spacing: -.03em; margin: 0 0 8px;
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 @media (max-width: 720px) {
-  .toolbar button span, .size span { display: none; }
+  .toolbar { gap: 6px; }
+  .group.right { width: 100%; justify-content: flex-start; }
   .group.right { margin-left: 0; }
   .mascot-btn { width: 90px; height: 108px; }
   .bubble { max-width: 230px; margin-bottom: 50px; font-size: 15px; }

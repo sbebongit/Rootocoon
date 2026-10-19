@@ -11,7 +11,9 @@ The project runs locally on your own computer. Nothing is published to the inter
 | Requirement | How it is solved |
 |---|---|
 | Upload an image | Drag and drop, click to choose, or paste with Ctrl+V |
-| Brush to select | Brush, eraser, size slider, undo/redo, clear. Works with mouse, pen and touch |
+| Brush to select | Brush and eraser, brush size from 2 to 200 px (buttons, slider, or Ctrl + drag like After Effects), undo/redo, clear. Works with mouse, pen and touch |
+| Image info | File name, size in pixels, aspect ratio, file size and format shown above the image |
+| No quality loss | Downloads keep the uploaded resolution: JPG at maximum quality or lossless PNG |
 | AI fills in the background | The LaMa model guesses what was behind the object from its surroundings |
 | Uses the GPU | Picks NVIDIA (CUDA) → Apple Silicon (MPS) → CPU automatically |
 | Rejects non-image files | Reads the file's first bytes ("magic numbers"), so a `.txt` renamed to `.jpg` is caught |
@@ -110,7 +112,7 @@ rootocoon/
 
 ## Keyboard shortcuts
 
-`B` brush · `E` eraser · `[` `]` brush size · `Ctrl+Z` undo · `Ctrl+Y` redo · `Enter` erase
+`B` brush · `E` eraser · `[` `]` brush size · `Ctrl` + drag on the image: brush size (right or up = bigger, left or down = smaller) · `O` show original · `Ctrl+Z` undo · `Ctrl+Y` redo · `Enter` erase
 
 ## Tips for good results
 
