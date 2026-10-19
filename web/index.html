@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rootocoon</title>
+  <meta name="description" content="Remove things from your photos with AI. Nothing is stored.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <span>Rooto<b>coon</b></span>
+    </div>
+    <div class="badges">
+      <span class="badge" title="All traffic goes over HTTPS (TLS)">🔒 Encrypted</span>
+      <span class="badge" title="Images only live in memory while they are processed">🗑️ Nothing stored</span>
+      <span class="badge" id="engineBadge" title="Where the AI runs">⚙️ …</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Step 1: upload -->
+    <section id="uploadView" class="view">
+      <h1>Erase things from your photos</h1>
+      <p class="lead">Paint over what you want gone – the AI figures out what was behind it.</p>
+
+      <label id="dropZone" class="drop" tabindex="0">
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/bmp" hidden>
+        <span class="drop-icon" aria-hidden="true">⬆</span>
+        <strong>Drop an image here</strong>
+        <span>or click to choose one</span>
+        <small id="limitText">JPG, PNG, WEBP or BMP · max 10 MB</small>
+      </label>
+
+      <ol class="how">
+        <li><b>1</b> Upload an image</li>
+        <li><b>2</b> Paint over what should go</li>
+        <li><b>3</b> Press <em>Erase it!</em></li>
+      </ol>
+    </section>
+
+    <!-- Step 2: edit -->
+    <section id="editView" class="view" hidden>
+      <div class="toolbar" role="toolbar" aria-label="Tools">
+        <div class="group">
+          <button class="tool active" data-tool="brush" title="Brush (B)">🖌️ <span>Brush</span></button>
+          <button class="tool" data-tool="eraser" title="Eraser (E)">🩹 <span>Eraser</span></button>
+        </div>
+        <label class="size" title="Brush size ( [ and ] )">
+          <span>Size</span>
+          <input id="brushSize" type="range" min="4" max="160" value="40">
+        </label>
+        <div class="group">
+          <button id="undoBtn" title="Undo (Ctrl+Z)">↶ <span>Undo</span></button>
+          <button id="redoBtn" title="Redo (Ctrl+Y)">↷ <span>Redo</span></button>
+          <button id="clearBtn" title="Clear selection">✕ <span>Clear</span></button>
+        </div>
+        <div class="group right">
+          <button id="compareBtn" title="Hold to see the original">👁 <span>Original</span></button>
+          <button id="downloadBtn" title="Download">⬇ <span>Save</span></button>
+          <button id="newBtn" title="New image">＋ <span>New image</span></button>
+        </div>
+      </div>
+
+      <div id="stage" class="stage">
+        <div id="canvasWrap" class="canvas-wrap">
+          <canvas id="imageCanvas"></canvas>
+          <canvas id="maskCanvas"></canvas>
+          <div id="cursor" class="cursor" hidden></div>
+          <div id="busy" class="busy" hidden><div class="scan"></div></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="goBtn" class="go" disabled>✨ Erase it!</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Rootocoon, the mascot -->
+  <aside id="mascot" class="mascot" aria-live="polite">
+    <div id="bubble" class="bubble" hidden>
+      <p id="bubbleText"></p>
+      <div class="bubble-btns">
+        <button id="skipBtn" class="link">Skip the guide</button>
+        <button id="nextBtn">Next</button>
+      </div>
+    </div>
+    <button id="mascotBtn" class="mascot-btn" title="Ask Rootocoon"></button>
+  </aside>
+
+  <footer class="foot">
+    Images are sent encrypted, processed in memory and deleted right away. No storage, no trackers.
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

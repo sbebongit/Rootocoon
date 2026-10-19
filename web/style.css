@@ -1,0 +1,203 @@
+:root {
+  --bg: #fbf6ec;
+  --paper: #ffffff;
+  --ink: #23262d;
+  --muted: #6b6f78;
+  --line: #e7dfcf;
+  --accent: #e8683a;
+  --accent-ink: #fff;
+  --purple: #7c5cd6;
+  --mask: rgba(232, 60, 80, 1);
+  --radius: 16px;
+  --shadow: 0 6px 24px rgba(60, 45, 20, .12);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1d21; --paper: #26282e; --ink: #f1ede5; --muted: #a3a6ad;
+    --line: #383b43; --shadow: 0 6px 24px rgba(0, 0, 0, .4);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+[hidden] { display: none !important; }
+
+/* --- Header --- */
+.top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 24px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-size: 22px; letter-spacing: -.02em; }
+.brand b { color: var(--accent); }
+.logo { width: 34px; height: 34px; background: url(favicon.svg) center/contain no-repeat; }
+.badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.badge {
+  font-size: 13px; padding: 5px 10px; border-radius: 99px;
+  background: var(--paper); border: 1px solid var(--line); color: var(--muted);
+}
+
+main { flex: 1; padding: 0 16px 120px; }
+.view { max-width: 1100px; margin: 0 auto; }
+
+/* --- Upload --- */
+#uploadView { text-align: center; padding-top: 4vh; }
+h1 { font-size: clamp(28px, 5vw, 46px); letter-spacing: -.03em; margin: 0 0 8px; }
+.lead { color: var(--muted); font-size: 18px; margin: 0 0 28px; }
+.drop {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  max-width: 560px; margin: 0 auto; padding: 48px 24px;
+  border: 3px dashed var(--line); border-radius: 24px; background: var(--paper);
+  cursor: pointer; transition: border-color .15s, transform .15s, background .15s;
+}
+.drop:hover, .drop:focus-visible, .drop.over {
+  border-color: var(--accent); transform: translateY(-2px); outline: none;
+}
+.drop.over { background: color-mix(in srgb, var(--accent) 8%, var(--paper)); }
+.drop-icon {
+  width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); font-size: 26px; margin-bottom: 6px;
+}
+.drop strong { font-size: 20px; }
+.drop span { color: var(--muted); }
+.drop small { color: var(--muted); margin-top: 10px; }
+
+.how {
+  list-style: none; padding: 0; margin: 32px auto 0; display: flex; justify-content: center;
+  gap: 24px; flex-wrap: wrap; color: var(--muted);
+}
+.how b {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 6px;
+  border-radius: 50%; background: var(--ink); color: var(--bg); font-size: 13px;
+}
+
+/* --- Toolbar --- */
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 8px; box-shadow: var(--shadow); margin-bottom: 14px;
+}
+.group { display: flex; gap: 4px; }
+.group.right { margin-left: auto; }
+.toolbar button {
+  border: 0; background: transparent; padding: 8px 12px; border-radius: 10px;
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.toolbar button:hover:not(:disabled) { background: var(--bg); }
+.toolbar button:disabled { opacity: .35; cursor: default; }
+.toolbar button.active { background: var(--ink); color: var(--bg); }
+.size { display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--muted); font-size: 14px; }
+.size input { width: 120px; accent-color: var(--accent); }
+
+/* --- Image area --- */
+.stage {
+  display: grid; place-items: center; min-height: 300px;
+  background:
+    repeating-conic-gradient(var(--line) 0 25%, transparent 0 50%) 0 0 / 20px 20px,
+    var(--paper);
+  border-radius: var(--radius); padding: 12px; border: 1px solid var(--line);
+}
+.canvas-wrap { position: relative; line-height: 0; touch-action: none; }
+.canvas-wrap canvas { display: block; max-width: 100%; max-height: 68vh; border-radius: 6px; }
+#maskCanvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: .5; cursor: none; mix-blend-mode: normal;
+}
+.canvas-wrap.comparing #maskCanvas { opacity: 0; }
+.canvas-wrap canvas.orig { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cursor {
+  position: absolute; pointer-events: none; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.6);
+  transform: translate(-50%, -50%);
+}
+.cursor.eraser { border-style: dashed; }
+
+/* AI working: scanner effect over the image */
+.busy { position: absolute; inset: 0; overflow: hidden; border-radius: 6px; background: rgba(20, 20, 30, .25); }
+.scan {
+  position: absolute; left: 0; right: 0; height: 30%;
+  background: linear-gradient(transparent, rgba(124, 92, 214, .55), transparent);
+  animation: scan 1.2s ease-in-out infinite alternate;
+}
+@keyframes scan { from { top: -30%; } to { top: 100%; } }
+
+.actions { display: flex; justify-content: center; margin-top: 16px; }
+.go {
+  border: 0; border-radius: 99px; padding: 14px 34px; font-size: 19px; font-weight: 700;
+  background: var(--accent); color: var(--accent-ink); box-shadow: 0 6px 0 #b9471f;
+  transition: transform .08s, box-shadow .08s, opacity .2s;
+}
+.go:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #b9471f; }
+.go:disabled { opacity: .4; cursor: default; }
+
+/* --- Rootocoon & speech bubble --- */
+.mascot {
+  position: fixed; right: 16px; bottom: 12px; z-index: 10;
+  display: flex; align-items: flex-end; gap: 6px; pointer-events: none;
+}
+.mascot > * { pointer-events: auto; }
+.mascot-btn {
+  width: 130px; height: 156px; border: 0; background: none; padding: 0;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.18));
+  transition: transform .2s;
+}
+.mascot-btn:hover { transform: rotate(-4deg) scale(1.04); }
+.mascot-btn svg { width: 100%; height: 100%; overflow: visible; }
+.mascot-btn.pop { animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes pop { 0% { transform: scale(.6) translateY(20px); } 100% { transform: none; } }
+
+.bubble {
+  position: relative; max-width: 300px; margin-bottom: 70px;
+  background: var(--paper); border: 2px solid var(--ink); border-radius: 18px;
+  padding: 14px 16px 10px; box-shadow: var(--shadow);
+  animation: bubble .25s ease-out;
+}
+.bubble::after {
+  content: ""; position: absolute; right: -11px; bottom: 26px;
+  border: 10px solid transparent; border-left-color: var(--ink); border-right: 0;
+}
+.bubble p { margin: 0 0 10px; line-height: 1.45; }
+.bubble.alert { border-color: var(--accent); }
+.bubble.alert::after { border-left-color: var(--accent); }
+@keyframes bubble { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+.bubble-btns { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.bubble-btns button {
+  border: 0; border-radius: 99px; padding: 6px 14px; background: var(--ink); color: var(--bg); font-size: 14px;
+}
+.bubble-btns .link { background: none; color: var(--muted); padding: 6px 0; text-decoration: underline; }
+
+/* Small animations in the raccoon */
+.raccoon .bodybob { animation: breathe 3s ease-in-out infinite; transform-origin: 100px 220px; }
+@keyframes breathe { 50% { transform: scaleY(1.015); } }
+.raccoon .wave { animation: wave .9s ease-in-out infinite alternate; transform-origin: 62px 140px; }
+@keyframes wave { from { transform: rotate(-8deg); } to { transform: rotate(14deg); } }
+.raccoon .bob { animation: bob 1.4s ease-in-out infinite alternate; }
+@keyframes bob { to { transform: translateY(-5px); } }
+.raccoon .spin { transform-box: fill-box; transform-origin: center; animation: spin 1.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.raccoon .confetti rect { animation: fall 1.8s ease-in infinite; }
+@keyframes fall { 0% { transform: translateY(-6px); opacity: 1; } 100% { transform: translateY(24px); opacity: 0; } }
+.raccoon.is-working .bodybob { animation: shake .25s linear infinite; }
+@keyframes shake { 25% { transform: rotate(1deg); } 75% { transform: rotate(-1deg); } }
+.raccoon.is-stuffed .bodybob { animation: wobble 1.2s ease-in-out infinite; }
+@keyframes wobble { 50% { transform: scaleX(1.03) scaleY(.98); } }
+
+.foot { text-align: center; color: var(--muted); font-size: 13px; padding: 16px 160px 20px 16px; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+@media (max-width: 720px) {
+  .toolbar button span, .size span { display: none; }
+  .group.right { margin-left: 0; }
+  .mascot-btn { width: 90px; height: 108px; }
+  .bubble { max-width: 230px; margin-bottom: 50px; font-size: 15px; }
+  .foot { padding-right: 16px; padding-bottom: 130px; }
+}

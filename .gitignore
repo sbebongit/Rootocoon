@@ -1,0 +1,18 @@
+# AI model (200 MB) - downloaded with download_model.py
+models/*.pt
+models/*.part
+
+# TLS keys - created by run.py, must never be shared
+certs/*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
