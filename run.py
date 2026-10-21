@@ -11,6 +11,7 @@ certificate from Let's Encrypt instead.
 """
 import datetime
 import ipaddress
+import os
 import sys
 from pathlib import Path
 
@@ -19,7 +20,10 @@ import uvicorn
 ROOT = Path(__file__).resolve().parent
 CERT = ROOT / "certs" / "cert.pem"
 KEY = ROOT / "certs" / "key.pem"
-PORT = 8443
+PORT = int(os.environ.get("ROOTOCOON_PORT", "8443"))
+# Who may connect: 127.0.0.1 = only this computer (default, for working locally).
+# On the AWS server it is set to 0.0.0.0 so visitors from the internet can reach it.
+HOST = os.environ.get("ROOTOCOON_HOST", "127.0.0.1")
 
 
 def make_cert():
@@ -62,11 +66,12 @@ if __name__ == "__main__":
     if not (CERT.exists() and KEY.exists()):
         make_cert()
     sys.path.insert(0, str(ROOT / "server"))
-    print(f"\n  Open  https://localhost:{PORT}\n")
+    print(f"\n  Open  https://localhost:{PORT}\n" if HOST == "127.0.0.1"
+          else f"\n  Listening on port {PORT} for visitors from the network\n")
     uvicorn.run(
         "app:app",
         app_dir=str(ROOT / "server"),
-        host="127.0.0.1",          # only reachable from this computer ("0.0.0.0" = whole network)
+        host=HOST,
         port=PORT,
         ssl_certfile=str(CERT),
         ssl_keyfile=str(KEY),
