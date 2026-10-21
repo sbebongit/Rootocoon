@@ -5,6 +5,8 @@ All notable changes to Rootocoon, newest first.
 ## 2026-10-21
 
 ### Added
+- Hosted on AWS EC2 at https://rootocoon.duckdns.org, with a fixed IP address, a real HTTPS certificate from Let's Encrypt and automatic start when the server boots.
+- `run.py` can be told which address and port to listen on (`ROOTOCOON_HOST`, `ROOTOCOON_PORT`), so the same code runs both locally and on the server.
 - Upload limit: each visitor can erase up to 15 images a minute and 150 an hour, and at most 3 images are processed at the same time. This stops a single visitor or script from keeping the server busy. Rootocoon explains the limit in the guide, and tells you how long to wait when it is reached.
 
 ### Changed

@@ -4,6 +4,8 @@ Rootocoon is a website that removes things from photos. You upload an image, pai
 
 Rootocoon is a web app: a Python server runs the AI, and you use it in your browser. It can run on your own computer for development, or on a server such as AWS EC2 so that anyone can use it.
 
+**Live version:** https://rootocoon.duckdns.org (hosted on AWS EC2 in Stockholm; the server is switched off when not in use)
+
 ![Rootocoon start page](docs/screenshot-start.png)
 
 ## Features
@@ -87,6 +89,32 @@ Browser                                      Server (Python, FastAPI)
 **About the encryption.** HTTPS encrypts everything between the browser and the server, so nobody on the same network can see the images. `run.py` creates its own certificate. The browser warns because no known authority signed it, but the encryption is just as strong. A real public site would use a free certificate from Let's Encrypt, and the warning would go away.
 
 **About privacy.** Images are read into memory, processed and dropped as soon as the response has been sent. Nothing is written to disk, access logging is turned off, and the responses tell the browser not to cache them. The page loads no external fonts, scripts or trackers.
+
+## Hosting on AWS
+
+The live version runs on an Amazon EC2 server:
+
+| Part | Setup |
+|---|---|
+| Server | EC2 `m7i-flex.large` (2 vCPU, 8 GB RAM, no GPU) with Ubuntu, region Stockholm (eu-north-1). The AI runs on the CPU, a few seconds per erase |
+| Address | A fixed Elastic IP, with the free domain name `rootocoon.duckdns.org` from DuckDNS pointing to it |
+| HTTPS | A free certificate from Let's Encrypt (certbot), renewed automatically every few months. A small hook copies the new certificate to Rootocoon and restarts it |
+| Firewall | Security group: HTTPS (443) open to everyone, HTTP (80) open only so Let's Encrypt can verify the domain, SSH (22) only from the owner's IP address |
+| Start-up | A systemd service starts Rootocoon automatically when the server boots and restarts it if it crashes. It runs as a normal user, not as admin |
+| Cost control | AWS Free plan with credits, a monthly budget alert, MFA on the account, and the server is stopped when not in use |
+
+Setting it up on a new Ubuntu server:
+
+```bash
+sudo apt update && sudo apt install -y python3-venv python3-pip git
+git clone https://github.com/sbebongit/Rootocoon.git rootocoon && cd rootocoon
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pip install torch --index-url https://download.pytorch.org/whl/cpu   # CPU version, no GPU on the server
+python download_model.py
+```
+
+Then run it as a service with `ROOTOCOON_HOST=0.0.0.0` and `ROOTOCOON_PORT=443`, so it accepts visitors from the internet on the normal HTTPS port. By default `run.py` only listens on the local computer.
 
 ## Project structure
 
