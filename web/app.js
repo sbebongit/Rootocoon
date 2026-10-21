@@ -3,21 +3,23 @@ import { raccoonSVG } from "./mascot.js";
 const $ = (s) => document.querySelector(s);
 const MAX_SEND_SIDE = 1536; // crops larger than this are scaled down before they are sent
 
-const cfg = { maxMb: 10, maxPixels: 40_000_000, engine: "?" };
+const cfg = { maxMb: 10, maxPixels: 40_000_000, ratePerMin: 15, engine: "?" };
 
 /* =====================================================================
    Rootocoon – speech bubbles, guide and costumes
    ===================================================================== */
 const GUIDES = {
   upload: [
-    ["hello", "Hi! I'm <b>Rootocoon</b> 🦝 I help you erase things from photos – tourists, power lines, your little brother's thumb…"],
+    ["hello", "Hi! I'm <b>Rootocoon</b>. Other raccoons raid trash cans – I raid photos. Show me what you want gone, and I'll snatch it right out."],
     ["talk", "Start by <b>dragging an image</b> into the box, or click to choose one. JPG, PNG, WEBP or BMP, max {MB} MB."],
     ["talk", "Don't worry about uploading: everything is sent <b>encrypted</b> (HTTPS) and your image only lives in memory while I work. <b>Nothing is stored.</b>"],
   ],
   edit: [
     ["painter", "Nice! Now <b>paint over</b> whatever you want gone. Cover all of it – and its shadow too, if it has one."],
-    ["talk", "Change the brush <b>size</b> with the slider (or the <b>[</b> and <b>]</b> keys). Painted too much? Use the <b>Eraser</b> or <b>Undo</b>."],
-    ["talk", "Then press <b>✨ Erase it!</b> and the AI guesses what was behind it. You can run it several times, and press <b>Original</b> to compare with the image you uploaded."],
+    ["talk", "Change the <b>brush size</b> with <b>−</b> and <b>+</b>, or hold <b>Ctrl</b> and drag on the image: right makes it bigger, left smaller."],
+    ["talk", "Painted too much? Click the <b>Eraser</b> in the toolbar, then paint over the red to wipe it away. It only removes the red paint, never your photo. Click <b>Brush</b> to paint again."],
+    ["talk", "Then press <b>Erase it!</b> and the AI guesses what was behind it. You can run it several times, and press <b>Original</b> to compare with the image you uploaded."],
+    ["talk", "Heads up: I'm just a little raccoon with a little brain. I can handle about <b>{RATE} photos a minute</b> before I get overwhelmed."],
   ],
 };
 
@@ -31,7 +33,9 @@ const MESSAGES = {
   bad_mask: ["confused", "Something went wrong with the selection. Try clearing it and painting again."],
   network: ["hurt", "Ouch! I can't reach the server. Is it running? Try again in a moment."],
   server: ["hurt", "Ouch, something broke in the engine room. Try again – or try another image."],
-  working: ["working", "Working… I'm looking at the surroundings and rebuilding what was behind it 🔧"],
+  working: ["working", "Working… I'm looking at the surroundings and rebuilding what was behind it."],
+  rate_limited: ["sleepy", "Phew, too much work! My little raccoon brain needs a breather. Try again in <b>{WAIT}</b>."],
+  server_busy: ["working", "My paws are full with other people's photos right now! Give me a few seconds and try again."],
   done: ["party", "<b>Ta-da!</b> Gone! Does something look odd? Press Undo, paint a little wider and run it again."],
   done_basic: ["party", "<b>Ta-da!</b> Done! (Psst – the server is using my simple fallback method right now. Install the AI model for much better results, see the README.)"],
 };
@@ -41,7 +45,9 @@ const mascot = (() => {
   const next = $("#nextBtn"), skip = $("#skipBtn");
   let queue = [], current = "talk", idleTimer = 0, onClose = null;
 
-  const fill = (s) => s.replace("{MB}", cfg.maxMb).replace("{MP}", Math.round(cfg.maxPixels / 1e6));
+  let wait = "a minute";
+  const fill = (s) => s.replace("{MB}", cfg.maxMb).replace("{MP}", Math.round(cfg.maxPixels / 1e6))
+    .replace("{RATE}", cfg.ratePerMin).replace("{WAIT}", wait);
 
   function costume(name, pop = true) {
     if (name === current && btn.innerHTML) return;
@@ -76,6 +82,10 @@ const mascot = (() => {
   }
   function say(key, opts = {}) {
     queue = [];
+    // How long to wait, in words, when the server says "too many requests"
+    const sec = opts.retryAfter;
+    const min = Math.ceil(sec / 60);
+    wait = !sec ? "a minute" : sec < 90 ? `${sec} seconds` : `${min} ${min === 1 ? "minute" : "minutes"}`;
     show(MESSAGES[key], { alert: opts.alert ?? true, buttons: opts.buttons ?? true });
   }
   function resetIdle() {
@@ -84,7 +94,7 @@ const mascot = (() => {
   }
 
   next.addEventListener("click", () => (queue.length ? step() : hide()));
-  skip.addEventListener("click", () => { store.set("skipGuide", "1"); hide(); });
+  skip.addEventListener("click", () => { visit.skipped = true; hide(); });
   btn.addEventListener("click", () => {
     if (!bubble.hidden) return hide();
     guide(GUIDES[state.view]);
@@ -98,12 +108,14 @@ const mascot = (() => {
   return { costume, say, guide, hide, get current() { return current; }, get open() { return !bubble.hidden; } };
 })();
 
-// localStorage can be disabled (private mode) – then we just don't remember anything
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+// The guide starts on every visit. "Skip guide" only lasts for this visit:
+// nothing is saved in the browser, so opening the site again starts the guide again.
+const visit = { skipped: false, seen: {} };
+const autoGuide = (view) => {
+  if (visit.skipped || visit.seen[view]) return;
+  visit.seen[view] = true;
+  mascot.guide(GUIDES[view]);
 };
-const autoGuide = (view) => { if (!store.get("skipGuide") && !store.get("seen_" + view)) { store.set("seen_" + view, "1"); mascot.guide(GUIDES[view]); } };
 
 /* =====================================================================
    Upload + file checks
@@ -134,7 +146,14 @@ function sniff(b) {
   return null;
 }
 
-class CheckError extends Error { constructor(code) { super(code); this.code = code; } }
+class CheckError extends Error {
+  constructor(code, retryAfter) { super(code); this.code = code; this.retryAfter = retryAfter; }
+}
+// Turns an error answer from the server into a CheckError
+async function serverError(res) {
+  const j = await res.json().catch(() => ({}));
+  return new CheckError(j.code || "server", j.retry_after);
+}
 
 async function checkFile(file) {
   // 1. Size – checked before we even read the file
@@ -153,7 +172,7 @@ async function checkFile(file) {
   const fd = new FormData();
   fd.append("image", file);
   const res = await api("/api/check", fd);
-  if (!res.ok) { bmp.close(); throw new CheckError((await res.json().catch(() => ({}))).code || "server"); }
+  if (!res.ok) { bmp.close(); throw await serverError(res); }
   return { bmp, type };
 }
 
@@ -177,7 +196,7 @@ async function openFile(file) {
     mascot.hide();
     showView("edit");
   } catch (e) {
-    mascot.say(e.code in MESSAGES ? e.code : "server");
+    mascot.say(e.code in MESSAGES ? e.code : "server", { retryAfter: e.retryAfter });
   }
   $("#fileInput").value = "";
 }
@@ -493,7 +512,7 @@ async function run() {
     fd.append("image", await toBlob(imgCrop), "crop.png");
     fd.append("mask", await toBlob(maskCrop), "mask.png");
     const res = await api("/api/inpaint", fd);
-    if (!res.ok) throw new CheckError((await res.json().catch(() => ({}))).code || "server");
+    if (!res.ok) throw await serverError(res);
     const engine = res.headers.get("X-Engine");
     const out = await createImageBitmap(await res.blob());
 
@@ -517,7 +536,7 @@ async function run() {
     redrawMask();
     mascot.say(engine === "lama" ? "done" : "done_basic", { alert: false });
   } catch (e) {
-    mascot.say(e.code in MESSAGES ? e.code : "server");
+    mascot.say(e.code in MESSAGES ? e.code : "server", { retryAfter: e.retryAfter });
   } finally {
     setBusy(false);
   }
@@ -609,13 +628,12 @@ fetch("/api/info", { cache: "no-store" })
   .then((r) => r.json())
   .then((i) => {
     cfg.maxMb = i.max_mb; cfg.maxPixels = i.max_pixels; cfg.engine = i.engine;
+    if (i.rate_per_min) cfg.ratePerMin = i.rate_per_min;
     $("#limitText").textContent = `JPG, PNG, WEBP or BMP · max ${i.max_mb} MB`;
-    $("#engineBadge").textContent = i.engine === "lama" ? `⚡ AI on ${i.device}` : "⚙️ Fallback mode (no AI model)";
+    // Where the AI runs is only written to the browser console (F12), not shown on the page
+    console.info(`Rootocoon AI: ${i.engine} on ${i.device}`);
   })
-  .catch(() => ($("#engineBadge").textContent = "⚠️ Server not responding"));
+  .catch(() => console.warn("Rootocoon: the server is not responding"));
 
-if (location.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(location.hostname)) {
-  $("#engineBadge").textContent = "⚠️ Not encrypted!";
-}
 setSize(+sizeInput.value, false);
 showView("upload");

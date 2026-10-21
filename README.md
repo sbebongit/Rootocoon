@@ -1,8 +1,8 @@
-# Rootocoon 🦝
+# Rootocoon
 
 Rootocoon is a website that removes things from photos. You upload an image, paint over what you want gone, and an AI fills in what was most likely behind it – similar to Roto Brush and Content-Aware Fill in Adobe's tools. The raccoon mascot, also called Rootocoon, guides you through it and changes costume depending on what happens.
 
-The project runs locally on your own computer. Nothing is published to the internet.
+Rootocoon is a web app: a Python server runs the AI, and you use it in your browser. It can run on your own computer for development, or on a server such as AWS EC2 so that anyone can use it.
 
 ![Rootocoon start page](docs/screenshot-start.png)
 
@@ -61,7 +61,7 @@ python run.py
 
 Open **https://localhost:8443**. The first time, the browser warns about the certificate – click *Advanced → Proceed to localhost* (explained below). Stop the server with **Ctrl+C** in the terminal.
 
-The badge in the top-right corner shows where the AI runs, e.g. `⚡ AI on NVIDIA GeForce RTX 3060`. If it says *Fallback mode*, PyTorch or the model is missing, and a simpler method with blurrier results is used instead.
+When you open the page, the terminal shows where the AI runs, e.g. `[AI] LaMa loaded on: cuda` (graphics card) or `cpu`. If it says PyTorch or the model is missing, a simpler fallback method with blurrier results is used instead.
 
 ## How it works
 

@@ -2,6 +2,19 @@
 
 All notable changes to Rootocoon, newest first.
 
+## 2026-10-21
+
+### Added
+- Upload limit: each visitor can erase up to 15 images a minute and 150 an hour, and at most 3 images are processed at the same time. This stops a single visitor or script from keeping the server busy. Rootocoon explains the limit in the guide, and tells you how long to wait when it is reached.
+
+### Changed
+- New greeting: "Hi! I'm Rootocoon. Other raccoons raid trash cans - I raid photos. Show me what you want gone, and I'll snatch it right out."
+- The guide explains how to change the brush size (- and +, or Ctrl + drag) and how to use the Eraser to wipe away red paint.
+- The guide starts on every visit. "Skip the guide" only applies to the current visit, and nothing is saved in the browser.
+- Speech bubbles no longer contain emojis.
+- Uploads are always kept in memory, never in temporary files on disk.
+- The README describes Rootocoon as a web app that runs on your own computer or on a server such as AWS EC2.
+
 ## 2026-10-19
 
 ### Added

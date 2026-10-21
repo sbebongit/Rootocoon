@@ -71,4 +71,6 @@ if __name__ == "__main__":
         ssl_certfile=str(CERT),
         ssl_keyfile=str(KEY),
         access_log=False,          # no logs of who uploaded what
+        server_header=False,       # don't tell visitors which server software we run
+        proxy_headers=False,       # don't trust forwarded-IP headers, they can be faked
     )
