@@ -2,6 +2,12 @@
 
 All notable changes to Rootocoon, newest first.
 
+## 2026-10-27
+
+### Changed
+- The code is easier to read: the browser code (`web/app.js`, about 640 lines) is split into small files in `web/js/`, one per topic, and every file starts with a short explanation of what it does.
+- The README has a "How the code is organised" section that says where to find each part.
+
 ## 2026-10-21
 
 ### Added
@@ -15,6 +21,7 @@ All notable changes to Rootocoon, newest first.
 - The guide starts on every visit. "Skip the guide" only applies to the current visit, and nothing is saved in the browser.
 - Speech bubbles no longer contain emojis.
 - Uploads are always kept in memory, never in temporary files on disk.
+- Uploads that don't say how big they are are refused before they are read, so nobody can fill the server's disk with a huge streamed upload.
 - The README describes Rootocoon as a web app that runs on your own computer or on a server such as AWS EC2.
 
 ## 2026-10-19

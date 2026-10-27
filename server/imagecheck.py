@@ -43,15 +43,18 @@ def sniff_format(data: bytes) -> str | None:
 
 def load_image(data: bytes, max_bytes: int = MAX_BYTES) -> Image.Image:
     """Validates and decodes an image. Raises ImageError if anything is wrong."""
+    # --- 1. File size limit: empty files and files over 10 MB are refused ---
     if len(data) == 0:
         raise ImageError("empty", "The file is empty.")
     if len(data) > max_bytes:
         raise ImageError("too_big", f"The file is larger than {max_bytes // (1024 * 1024)} MB.", 413)
 
+    # --- 2. Is it really an image? A video or a renamed .txt is caught here ---
     fmt = sniff_format(data)
     if fmt is None or fmt not in ALLOWED_FORMATS:
         raise ImageError("wrong_format", "The file is not an image (JPG, PNG, WEBP or BMP).", 415)
 
+    # --- 3. Corrupt files: the whole image must open, or it is refused ---
     try:
         # 1) verify() checks the file structure
         with Image.open(BytesIO(data)) as probe:

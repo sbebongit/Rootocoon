@@ -57,9 +57,13 @@ def client_ip(request: Request) -> str:
 async def protect(request: Request, call_next):
     path = request.url.path
     if path.startswith("/api/") and request.method == "POST":
-        # 1. Stop oversized requests before we even read them
+        # 1. Stop oversized requests before we even read them. Uploads must say how big
+        #    they are (browsers always do); otherwise someone could stream a huge file
+        #    that fills the server's disk before we find out it is too big.
         cl = request.headers.get("content-length")
-        if cl and cl.isdigit() and int(cl) > MAX_REQUEST_BYTES:
+        if cl is None or not cl.isdigit():
+            return JSONResponse({"code": "bad_request", "message": "Missing upload size."}, 411)
+        if int(cl) > MAX_REQUEST_BYTES:
             return JSONResponse({"code": "too_big", "message": f"The file is larger than {MAX_MB} MB."}, 413)
         # 2. Has this visitor sent too many images lately?
         for limiter in LIMITS.get(path, []):

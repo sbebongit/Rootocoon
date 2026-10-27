@@ -99,7 +99,7 @@ The live version runs on an Amazon EC2 server:
 | Server | EC2 `m7i-flex.large` (2 vCPU, 8 GB RAM, no GPU) with Ubuntu, region Stockholm (eu-north-1). The AI runs on the CPU, a few seconds per erase |
 | Address | A fixed Elastic IP, with the free domain name `rootocoon.duckdns.org` from DuckDNS pointing to it |
 | HTTPS | A free certificate from Let's Encrypt (certbot), renewed automatically every few months. A small hook copies the new certificate to Rootocoon and restarts it |
-| Firewall | Security group: HTTPS (443) open to everyone, HTTP (80) open only so Let's Encrypt can verify the domain, SSH (22) only from the owner's IP address |
+| Firewall | Security group: HTTPS (443) open to everyone, HTTP (80) open only so Let's Encrypt can renew the certificate, SSH (22) only from the owner's IP address |
 | Start-up | A systemd service starts Rootocoon automatically when the server boots and restarts it if it crashes. It runs as a normal user, not as admin |
 | Cost control | AWS Free plan with credits, a monthly budget alert, MFA on the account, and the server is stopped when not in use |
 
@@ -116,23 +116,49 @@ python download_model.py
 
 Then run it as a service with `ROOTOCOON_HOST=0.0.0.0` and `ROOTOCOON_PORT=443`, so it accepts visitors from the internet on the normal HTTPS port. By default `run.py` only listens on the local computer.
 
-## Project structure
+## How the code is organised
+
+Every file starts with a short explanation of what it does, and the important parts have a comment heading. Where to look for what:
+
+| I want to see… | File |
+|---|---|
+| The 10 MB limit, the "is it really an image?" check and corrupt files | `server/imagecheck.py` (and `web/js/upload.js` for the same checks in the browser) |
+| The AI that fills in the background | `server/inpaint.py` |
+| The web server, security headers and the upload size check | `server/app.py` |
+| The upload limit (15 images a minute) | `server/ratelimit.py` |
+| HTTPS and the certificate | `run.py` |
+| The brush, eraser and brush size (Ctrl + drag) | `web/js/brush.js` |
+| Undo and redo | `web/js/history.js` |
+| "Erase it!" – what is sent to the AI | `web/js/erase.js` |
+| What Rootocoon says, and when | `web/js/guide.js` |
+| Rootocoon's costumes | `web/js/mascot.js` |
 
 ```
 rootocoon/
 ├── run.py               starts the server with HTTPS
 ├── download_model.py    downloads the AI model
 ├── requirements.txt
-├── server/
-│   ├── app.py           web server, API and security headers
+├── server/              runs on the server (Python)
+│   ├── app.py           web server, API, limits and security headers
 │   ├── imagecheck.py    checks size, format and corrupt files
+│   ├── ratelimit.py     how many images one visitor may send per minute and hour
 │   └── inpaint.py       the AI (LaMa on the GPU, OpenCV as a fallback)
-├── web/
-│   ├── index.html
-│   ├── style.css
-│   ├── app.js           brush, undo, upload, talking to the server
-│   ├── mascot.js        Rootocoon, drawn in SVG code with all costumes
-│   └── favicon.svg
+├── web/                 runs in the browser (HTML, CSS, JavaScript)
+│   ├── index.html       the page
+│   ├── style.css        the look
+│   ├── app.js           starts everything and adds the keyboard shortcuts
+│   ├── favicon.svg
+│   └── js/
+│       ├── state.js     shared settings, state and canvases
+│       ├── guide.js     Rootocoon's speech bubbles and guide
+│       ├── mascot.js    Rootocoon, drawn in SVG code with all costumes
+│       ├── upload.js    upload and file checks
+│       ├── imageinfo.js size, aspect ratio and format of the image
+│       ├── brush.js     brush, eraser and brush size
+│       ├── history.js   undo and redo
+│       ├── erase.js     sends the painted area to the AI
+│       ├── compare.js   the Original button
+│       └── save.js      download and "New image"
 ├── docs/                screenshots for this README
 ├── models/              big-lama.pt is downloaded here (not in git)
 └── certs/               the TLS certificate is created here (not in git)
